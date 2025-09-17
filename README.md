@@ -3,6 +3,8 @@
 A ready-to-use **PlatformIO project** for the [PandaTouch](https://bttwiki.com/PandaTouch.html) (ESP32-S3).  
 It brings up the **800×480 RGB LCD**, **GT911 touch controller**, and **LVGL v9.3** — so you can start building GUIs right away.
 
+<img src="docs/images/pandatouch.png" width="256" style="padding:64px; background-color:#fff; border-radius:8px;">
+
 ## Table of contents
 
 - [What’s inside](#whats-inside)
