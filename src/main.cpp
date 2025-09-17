@@ -4,7 +4,7 @@
 void setup()
 {
   Serial.begin(115200);
-  pt_setup_display();
+  pt_setup_display(PT_LVGL_RENDER_FULL_1);
   pt_demo_create_brightness_demo();
 }
 

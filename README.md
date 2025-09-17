@@ -5,11 +5,20 @@ It brings up the **800×480 RGB LCD**, **GT911 touch controller**, and **LVGL v9
 
 <img src="docs/images/pandatouch.png" width="256" style="padding:64px; background-color:#fff; border-radius:8px;">
 
+> **Important: tearing / display glitches warning**
+>
+> Building with the Arduino framework via PlatformIO works well for most users, but some display tearing, flicker or other timing-related artifacts can still occur on the RGB parallel LCD. These issues are commonly caused by low-level PSRAM/flash timing and memory configuration values that the Arduino core doesn't expose or allow you to tweak. The ESP-IDF gives direct control over these critical timings and is the most reliable way to achieve deterministic, tear-free behavior.
+>
+> If you need a more deterministic solution, use the IDF-based PandaTouch component at: https://github.com/bigtreetech/PandaTouch_IDF
+>
+> The `pandatouch-arduino-3x` environment (Arduino core 3.x) may mitigate some timing problems because it bundles newer SDK libs, but it does not always fully eliminate tearing — IDF is preferred for hard real-time/timing-sensitive scenarios.
+
 ## Table of contents
 
 - [What’s inside](#whats-inside)
 - [Quick start](#quick-start)
 - [Using the template](#using-the-template)
+- [Render mode quick reference](#render-mode-quick-ref)
 - [Arduino Core Selection](#arduino-core-selection)
 - [Recommended defaults for PandaTouch](#recommended-defaults-for-pandatouch)
 - [Common pitfalls (and fixes)](#common-pitfalls)
@@ -71,7 +80,9 @@ pio device monitor -b 115200
 
 ## 🖥️ Using the template
 
-Below are a few small LVGL examples to get you started. The template initializes the display, touch and LVGL for you — call `pt_setup_display()` in `setup()` and be sure to call `pt_loop_display()` regularly from `loop()` so LVGL can run its timers and process touch events.
+Below are a few small LVGL examples to get you started. The template initializes the display, touch, and LVGL for you — call `pt_setup_display([Render mode])` in `setup()` and be sure to call `pt_loop_display()` regularly from `loop()` so LVGL can run its timers and process touch events.
+
+For more details, see [Render mode quick reference](#render-mode-quick-ref).
 
 Basic setup/loop skeleton:
 
@@ -79,9 +90,12 @@ Basic setup/loop skeleton:
 #include "pt/pt_display.h"
 // #include "pt_demo.h"
 
-
 void setup() {
-  pt_setup_display(); // init LCD, touch, LVGL
+  // Choose a render mode at init (examples in pt_display.h):
+  // PT_LVGL_RENDER_FULL_1, PT_LVGL_RENDER_FULL_2,
+  // PT_LVGL_RENDER_PARTIAL_1, PT_LVGL_RENDER_PARTIAL_2 (default),
+  // PT_LVGL_RENDER_PARTIAL_1_PSRAM, PT_LVGL_RENDER_PARTIAL_2_PSRAM
+  pt_setup_display(PT_LVGL_RENDER_FULL_1); // init LCD, touch, LVGL using full-frame in PSRAM
   // run the provided demo
   // pt_demo_create_brightness_demo();
 }
@@ -120,9 +134,49 @@ lv_label_set_text(btn_label, "Press me");
 lv_obj_center(btn_label);
 ```
 
-Notes:
+> Notes:
+>
+> - Always call `pt_loop_display()` from `loop()` — the template's LVGL integration depends on it to run timers and to feed touch events.
+> - You can set the render mode globally at compile time via a build flag. Example (PlatformIO):
+>
+> ```ini
+> build_flags = -DPT_LVGL_RENDER_METHOD=PT_LVGL_RENDER_FULL_1
+> ```
 
-- Always call `pt_loop_display()` from `loop()` — the template's LVGL integration depends on it to run timers and to feed touch events.
+Passing the mode to `pt_setup_display(...)` in code overrides the compile-time default for that call.
+
+<a id="render-mode-quick-ref"></a>
+
+## 🧩 Render mode quick reference
+
+| Method                           |                   Approx memory footprint | Recommended when...                                                          |
+| -------------------------------- | ----------------------------------------: | ---------------------------------------------------------------------------- |
+| `PT_LVGL_RENDER_FULL_1`          |              ~1x full framebuffer (PSRAM) | You have PSRAM and want full-frame rendering with minimal internal RAM usage |
+| `PT_LVGL_RENDER_FULL_2`          |              ~2x full framebuffer (PSRAM) | You have abundant PSRAM and need double-buffering to avoid tearing           |
+| `PT_LVGL_RENDER_PARTIAL_1`       | small partial buffer (internal preferred) | Internal RAM available but PSRAM is scarce; memory efficient                 |
+| `PT_LVGL_RENDER_PARTIAL_2`       |   2x partial buffers (internal preferred) | Want smoother flushes with limited RAM usage (default)                       |
+| `PT_LVGL_RENDER_PARTIAL_1_PSRAM` |             small partial buffer in PSRAM | Internal RAM limited, PSRAM available; slightly slower flushes               |
+| `PT_LVGL_RENDER_PARTIAL_2_PSRAM` |               2x partial buffers in PSRAM | Balance between smoothness and PSRAM usage                                   |
+
+> Note on partial buffer height:
+>
+> - The number of scanlines used for partial buffers is controlled by the macro `PT_LVGL_RENDER_PARTIAL_LINES`. The default value in the code is `80` (see `pt/pt_display.h`). Larger values increase memory use but reduce the number of flushes; smaller values are more memory-efficient but may increase flush frequency.
+>
+> To override the default at compile time with PlatformIO, add a build flag, for example:
+>
+> ```ini
+> build_flags = -DPT_LVGL_RENDER_PARTIAL_LINES=120
+> ```
+
+> Note on LCD bounce buffer size:
+>
+> - The driver may allocate a small "bounce" area used internally by the RGB panel driver for transient pixel buffering. The number of lines used for this bounce buffer is controlled by `PT_LCD_RENDER_BOUNCE_LINES` (default `10` in `pt/pt_display.h`). The actual pixel allocation equals `PT_LCD_RENDER_BOUNCE_LINES * PT_LCD_H_RES` and is passed to the panel driver as a small scratch buffer. Increase it if you see tearing/artifacts during panel bring-up; decreasing it saves a little RAM.
+>
+> To override at compile time with PlatformIO:
+>
+> ```ini
+> build_flags = -DPT_LCD_RENDER_BOUNCE_LINES=20
+> ```
 
 <a id="arduino-core-selection"></a>
 
@@ -159,15 +213,14 @@ pio run -e pandatouch-arduino-3x
 pio run -e pandatouch-arduino-3x -t upload --upload-port /dev/ttyUSB0
 ```
 
-Notes on what changes between envs
-
-- The environments have different `lib_deps`, and the 3.x env also declares `platform_packages` pointing to the Arduino-ESP32 3.0.7 GitHub tree and prebuilt SDK libs. That forces PlatformIO to use the 3.x core while keeping the rest of your project unchanged.
-
-Tip: list all envs in your `platformio.ini` with:
-
-```bash
-pio run --list
-```
+> Notes on what changes between envs
+>
+> - The environments have different `lib_deps`, and the 3.x env also declares `platform_packages` pointing to the Arduino-ESP32 3.0.7 GitHub tree and prebuilt SDK libs. That forces PlatformIO to use the 3.x core while keeping the rest of your project unchanged.
+> - Tip: list all envs in your `platformio.ini` with:
+>
+> ```bash
+> pio run --list
+> ```
 
 ### Recommended defaults for PandaTouch
 
