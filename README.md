@@ -1,223 +1,281 @@
-# PandaTouch DevKit
+# PandaTouch Arduino Template
 
-This repository serves as a base reference project for the PandaTouch Board, providing example configurations, code, and documentation to help you get started with hardware and LVGL development on the ESP32-S3 platform.
+A ready-to-use **PlatformIO project** for the [PandaTouch](https://bttwiki.com/PandaTouch.html) (ESP32-S3).  
+It brings up the **800×480 RGB LCD**, **GT911 touch controller**, and **LVGL v9.3** — so you can start building GUIs right away.
 
-# Board Specifications
+## Table of contents
 
-## MCU
+- [What’s inside](#whats-inside)
+- [Quick start](#quick-start)
+- [Using the template](#using-the-template)
+- [Arduino Core Selection](#arduino-core-selection)
+- [Recommended defaults for PandaTouch](#recommended-defaults-for-pandatouch)
+- [Common pitfalls (and fixes)](#common-pitfalls)
+- [Example: full `platformio.ini` skeleton](#example-platformioini)
+- [Hardware specs](#hardware-specs)
+- [Troubleshooting](#troubleshooting)
+- [Resources](#resources)
+- [FAQ](#faq)
 
-- Model: ESP32-S3 (dual-core, Xtensa LX7 @ up to 240 MHz)
-- Features: Wi-Fi (2.4 GHz), Bluetooth 5 LE, USB OTG
-- Memory: 8 MB Octal PSRAM onboard
+<a id="whats-inside"></a>
 
-## Display
+## ✨ What’s inside
 
-- Type: RGB parallel LCD
-- Resolution: 800×480
-- Color Depth: 16-bit (RGB565)
-- Signals: PCLK, HSYNC, VSYNC, DE, DATA[15:0], Backlight
+- 📦 **PlatformIO template** for ESP32-S3 (Arduino framework)
+- 🖼️ **LVGL v9.3.0** graphics library integrated
+- 👆 **GT911 capacitive touch** driver (I²C)
+- 🖥️ **RGB parallel LCD** @ 800×480, RGB565
+- 🌗 **Backlight brightness control** via LEDC (PWM) with persistence
+- ⚡ Optimized LVGL **partial draw buffers** (PSRAM-aware)
+- 🧪 Demo apps (brightness slider, Hello World)
 
-### LCD Pin Mapping (from `main/pinout.h`)
+Perfect if you’re:
 
-| Signal    | GPIO | Notes                     |
-| --------- | ---- | ------------------------- |
-| PCLK      | 5    | Pixel clock               |
-| DE        | 38   | Data enable               |
-| HSYNC     | –    | Not routed (DE mode used) |
-| VSYNC     | –    | Not routed (DE mode used) |
-| R3        | 6    | Data                      |
-| R4        | 7    | Data                      |
-| R5        | 8    | Data                      |
-| R6        | 9    | Data                      |
-| R7        | 10   | Data                      |
-| G2        | 11   | Data                      |
-| G3        | 12   | Data                      |
-| G4        | 13   | Data                      |
-| G5        | 14   | Data                      |
-| G6        | 15   | Data                      |
-| G7        | 16   | Data                      |
-| B3        | 17   | Data                      |
-| B4        | 18   | Data                      |
-| B5        | 48   | Data                      |
-| B6        | 47   | Data                      |
-| B7        | 39   | Data                      |
-| Backlight | 21   | PWM capable               |
-| Reset     | 46   | LCD reset                 |
+- A maker getting started with PandaTouch
+- An embedded dev needing a quick LVGL boilerplate
+- An engineer prototyping a custom UI on ESP32-S3
 
-- Backlight control: PWM via LEDC on GPIO21
+<a id="quick-start"></a>
 
-## Touch
+## 🚀 Quick start
 
-- Controller: GT911 (capacitive touch)
-- Interface: I²C0
+### 1. Install prerequisites
 
-| Signal | GPIO |
-| ------ | ---- |
-| SCL    | 1    |
-| SDA    | 2    |
-| IRQ    | 40   |
-| RST    | 41   |
+- [PlatformIO](https://platformio.org/install/ide?install=vscode) (VS Code recommended)
+- USB drivers (if your OS needs them)
+- PandaTouch Unit
 
-## I²C Initialization Guide
+### 2. Clone this repo
 
-### GT911 Touch Controller (I²C0)
+```bash
+git https://github.com/bigtreetech/PandaTouch_PlatformIO.git
+cd PandaTouch_PlatformIO
+```
 
-- Pins: SCL = GPIO1, SDA = GPIO2
-- Bus: `I2C_NUM_0`
-- Speed: 400 kHz
-
-### AHT20 Humidity & Temperature Sensor (I²C1)
-
-- Pins: SCL = GPIO3, SDA = GPIO4
-- Bus: `I2C_NUM_1`
-- Speed: 100 kHz
-
-## USB
-
-- Mode: USB OTG (device/host, software-controlled)
-- Pins: D− GPIO19, D+ GPIO20 (ESP32-S3 built-in USB PHY)
-
-## Other Peripherals
-
-- PWM Backlight: GPIO21 via LEDC
-- Connectivity: Wi-Fi, Bluetooth
-- Available interfaces: UART, I²C, SPI, ADC, DAC, CAN, LEDC, MCPWM, RMT, etc.
-
----
-
-# PlatformIO
-
-This section provides the PlatformIO environment configuration for building and uploading firmware to the PandaTouch Board. PlatformIO is a cross-platform build system and IDE for embedded development, making it easy to manage dependencies, build flags, and board settings.
-
-For more information and step-by-step guides, see:
-
-- [PlatformIO Getting Started Guide](https://docs.platformio.org/en/latest/introduction.html)
-- [PlatformIO VS Code Extension](https://platformio.org/install/ide?install=vscode)
-- [PlatformIO ESP32 Documentation](https://docs.platformio.org/en/latest/boards/espressif32/esp32-s3-devkitc-1.html)
-
-The example below sets up the ESP32-S3 with the Arduino framework, specifies the required libraries (LVGL, GT911 touch, and GFX), and configures build flags for PSRAM and LVGL settings. You can use this configuration in your `platformio.ini` file to build, upload, and monitor your firmware directly from PlatformIO.
-
-````ini
-[env:pandatouch]
-platform = espressif32@6.9.0
-framework = arduino
-board = esp32-s3-devkitc-1
-monitor_speed = 115200
-lib_deps =
-  lvgl/lvgl#9.3.0
-  tamctec/TAMC_GT911@^1.0.2
-  moononournation/GFX Library for Arduino@1.5.0
-
-build_flags =
-  -I include
-  -DLV_CONF_PATH="${PROJECT_DIR}/include/lv_conf.h"
-  -DBOARD_HAS_PSRAM
-# PandaTouch DevKit
-
-PandaTouch Arduino Template — glue code and examples for using the PandaTouch board (ESP32‑S3) with LVGL in PlatformIO/Arduino projects.
-
-## Overview
-
-This repository is a reference template for the PandaTouch DevKit (ESP32‑S3). It provides a minimal Arduino/PlatformIO project that initializes an 800×480 RGB parallel LCD, GT911 capacitive touch via I²C, and LVGL v9.3.0 for building embedded GUIs. The code includes a brightness demo, backlight PWM control via LEDC, and sample LVGL usage to help you get started quickly.
-
-This project is aimed at embedded developers, makers, and engineers who want a working starting point for creating LVGL-based UIs on ESP32-S3 hardware with RGB parallel panels.
-
-## Key features
-
-- Ready-to-build PlatformIO template for PandaTouch (ESP32‑S3)
-- LVGL v9.3.0 integration (graphics library)
-- GT911 capacitive touch driver (I²C)
-- RGB parallel LCD support (800×480, RGB565)
-- PWM backlight control via LEDC with brightness persistence
-- Partial LVGL draw buffers and PSRAM-aware configuration to save SRAM
-- Minimal example demos (brightness slider, Hello World)
-
-## Quick start (PlatformIO)
-
-Prerequisites
-
-- PlatformIO (VS Code recommended)
-- USB drivers for your OS (if required by your USB-serial adapter)
-- PandaTouch DevKit (ESP32-S3) with panel and GT911 wired
-
-Build and upload
+### 3. Build & upload
 
 ```bash
 # Build
 pio run
 
-# Upload (replace /dev/ttyUSB0 with your port)
-pio run --target upload --environment pandatouch --upload-port /dev/ttyUSB0
+# Upload (replace port with yours)
+pio run -t upload -e pandatouch --upload-port /dev/ttyUSB0
 
-# Serial monitor (115200)
+# Monitor
 pio device monitor -b 115200
-````
+```
 
-Notes
+<a id="using-the-template"></a>
 
-- The repository `platformio.ini` pins `platform = espressif32@6.12.0` (use the exact version in the file to match precompiled SDK lines).
-- The `pandatouch` environment provides `lib_deps` for LVGL, GT911 and the GFX library.
+## 🖥️ Using the template
 
-## Usage
+Below are a few small LVGL examples to get you started. The template initializes the display, touch and LVGL for you — call `pt_setup_display()` in `setup()` and be sure to call `pt_loop_display()` regularly from `loop()` so LVGL can run its timers and process touch events.
 
-- Call `pt_setup_display()` in `setup()` to initialize the display, touch and LVGL.
-- Create LVGL objects (buttons, labels, sliders) as usual.
-- Call `pt_loop_display()` inside `loop()` to run LVGL tasks and process touch input.
+Basic setup/loop skeleton:
 
-Minimal example (summary)
+```cpp
+#include "pt/pt_display.h"
+// #include "pt_demo.h"
 
-- `src/main.cpp` calls `pt_setup_display()` and `pt_demo_create_brightness_demo()` on boot.
-- `src/pt/pt_display.h` exposes `pt_set_backlight()`, `pt_init_backlight()`, `pt_setup_display()`, and `pt_loop_display()`.
-- `src/pt_demo.h` builds a simple black screen with a brightness slider which calls `pt_set_backlight(percent, true)`.
 
-## Board specifications
+void setup() {
+  pt_setup_display(); // init LCD, touch, LVGL
+  // run the provided demo
+  // pt_demo_create_brightness_demo();
+}
+
+void loop() {
+  pt_loop_display(); // must be called regularly: runs lv_timer_handler and processes touch
+}
+```
+
+1. Create a simple label:
+
+```cpp
+lv_obj_t *label = lv_label_create(lv_scr_act());
+lv_label_set_text(label, "Hello PandaTouch!");
+lv_obj_center(label);
+```
+
+2. Create a button with an event callback:
+
+```cpp
+static void btn_event_cb(lv_event_t *e) {
+  lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_CLICKED) {
+    lv_obj_t *btn = lv_event_get_target(e);
+    lv_obj_t *lbl = lv_obj_get_child(btn, 0);
+    lv_label_set_text(lbl, "Clicked!");
+  }
+}
+
+lv_obj_t *btn = lv_btn_create(lv_scr_act());
+lv_obj_align(btn, LV_ALIGN_CENTER, 0, 40);
+lv_obj_add_event_cb(btn, btn_event_cb, LV_EVENT_ALL, NULL);
+
+lv_obj_t *btn_label = lv_label_create(btn);
+lv_label_set_text(btn_label, "Press me");
+lv_obj_center(btn_label);
+```
+
+Notes:
+
+- Always call `pt_loop_display()` from `loop()` — the template's LVGL integration depends on it to run timers and to feed touch events.
+
+<a id="arduino-core-selection"></a>
+
+## 🧩 Arduino Core Selection (2.x vs 3.x) — How this template handles it
+
+This template provides two ready-to-use PlatformIO environments in `platformio.ini` so you can choose the Arduino core that fits your dependencies and hardware needs.
+
+Short story:
+
+- `pandatouch` — default environment using the PlatformIO-bundled Arduino 2.x compatible setup (widest library support).
+- `pandatouch-arduino-3x` — environment pinned to Arduino core 3.x (3.0.7) and paired SDK libs; useful for ESP32‑S3 + RGB LCD performance and newer USB features.
+
+Why two envs?
+
+- Some third-party Arduino libraries still expect the 2.x core. The 3.x core improves S3 support (USB, timing) but can break a few libraries.
+
+How to use the environments
+
+- The template's default environment is `pandatouch`. Running `pio run` without `-e` will build that environment.
+
+Example commands:
+
+```bash
+# Build the default env (pandatouch)
+pio run
+
+# Upload using the default env (replace port)
+pio run -t upload --upload-port /dev/ttyUSB0
+
+# Build using the 3.x pinned environment
+pio run -e pandatouch-arduino-3x
+
+# Upload using the 3.x env (replace port)
+pio run -e pandatouch-arduino-3x -t upload --upload-port /dev/ttyUSB0
+```
+
+Notes on what changes between envs
+
+- The environments have different `lib_deps`, and the 3.x env also declares `platform_packages` pointing to the Arduino-ESP32 3.0.7 GitHub tree and prebuilt SDK libs. That forces PlatformIO to use the 3.x core while keeping the rest of your project unchanged.
+
+Tip: list all envs in your `platformio.ini` with:
+
+```bash
+pio run --list
+```
+
+### Recommended defaults for PandaTouch
+
+```ini
+build_flags =
+  -I include
+  -DLV_CONF_INCLUDE_SIMPLE
+  -DBOARD_HAS_PSRAM
+
+board_build.arduino.memory_type = qio_opi
+board_build.f_flash = 80000000L
+board_build.flash_mode = qio
+```
+
+- `BOARD_HAS_PSRAM` → allows LVGL to allocate larger buffers in PSRAM.
+- `qio_opi` + `80 MHz` flash → S3 + Octal PSRAM modules.
+- `LV_CONF_INCLUDE_SIMPLE` → include `lv_conf.h` in `include/`.
+
+<a id="common-pitfalls"></a>
+
+### Common pitfalls (and fixes)
+
+-- “Why did my libs disappear?”  
+ You probably used `lib_deps =` more than once in the same environment. Put all required libraries for an environment in a single `lib_deps` block to avoid accidentally overwriting earlier entries.
+
+- Switched envs and something won’t compile?  
+  Build the env that worked previously (for example `pio run -e pandatouch`) to confirm. If the 3.x env fails, either use the 2.x env or pin alternative library versions in `lib_deps` under the 3.x env.
+
+- USB confusion
+  - **USB‑C** on the board is for **power + flashing/serial**.
+  - **USB‑A** is **OTG** (host/device) and is controlled in software.
+
+<a id="example-platformioini"></a>
+
+### Example: full `platformio.ini` skeleton (multi-env)
+
+Below is the actual multi-environment `platformio.ini` used by this template. It exposes two working envs so you can switch between the PlatformIO-bundled 2.x setup and a pinned 3.x setup without manual edits.
+
+```ini
+; ================================================================
+; PandaTouch – PlatformIO Configuration
+; ================================================================
+
+[platformio]
+default_envs = pandatouch
+
+[env]
+platform = espressif32@6.12.0
+framework = arduino
+board = esp32-s3-devkitc-1
+monitor_speed = 115200
+lib_deps =
+  lvgl/lvgl@9.3.0
+  tamctec/TAMC_GT911@1.0.2
+build_flags =
+  -I include
+  -DLV_CONF_INCLUDE_SIMPLE
+  -DBOARD_HAS_PSRAM
+
+board_build.arduino.memory_type = qio_opi
+board_build.f_flash = 80000000L
+board_build.flash_mode = qio
+
+
+[env:pandatouch]
+lib_deps =
+  lvgl/lvgl@9.3.0
+  tamctec/TAMC_GT911@1.0.2
+  moononournation/GFX Library for Arduino@1.5.0
+
+[env:pandatouch-arduino-3x]
+lib_deps =
+  lvgl/lvgl@9.3.0
+  tamctec/TAMC_GT911@1.0.2
+  moononournation/GFX Library for Arduino@1.6.1
+platform_packages =
+  framework-arduinoespressif32 @ https://github.com/espressif/arduino-esp32.git#3.0.7
+  platformio/framework-arduinoespressif32-libs @ https://dl.espressif.com/AE/esp-arduino-libs/esp32-3.0.7.zip
+extra_scripts = pre:build_files_exclude.py
+custom_build_files_exclude = */Arduino_ESP32LCD8.cpp */Arduino_ESP32QSPI.cpp
+
+```
+
+<a id="hardware-specs"></a>
+
+## 📋 Hardware specs
 
 ### MCU
 
-- Model: ESP32-S3 (dual-core, Xtensa LX7 @ up to 240 MHz)
-- Features: Wi‑Fi (2.4 GHz), Bluetooth 5 LE, USB OTG
-- Memory: 8 MB Octal PSRAM onboard
+- **ESP32-S3** (dual-core Xtensa LX7 @ 240 MHz)
+- Wi-Fi 2.4 GHz, Bluetooth 5 LE
+- 8 MB **Octal PSRAM** onboard
+- Native USB-C for flashing & power
+- USB-A port for OTG device/host
 
-### Display
+### LCD (RGB Parallel, 800×480)
 
-- Type: RGB parallel LCD
-- Resolution: 800×480
-- Color Depth: 16-bit (RGB565)
-- Signals: PCLK, HSYNC, VSYNC, DE, DATA[15:0], Backlight
+| Signal    | GPIO           | Notes                |
+| --------- | -------------- | -------------------- |
+| PCLK      | 5              | Pixel clock          |
+| DE        | 38             | Data enable          |
+| HSYNC     | –              | Not used (DE mode)   |
+| VSYNC     | –              | Not used (DE mode)   |
+| R3–R7     | 6–10           | Red data             |
+| G2–G7     | 11–16          | Green data           |
+| B3–B7     | 17,18,48,47,39 | Blue data            |
+| Backlight | 21             | PWM backlight (LEDC) |
+| Reset     | 46             | LCD reset            |
 
-#### LCD Pin Mapping (from `main/pinout.h`)
-
-| Signal    | GPIO | Notes                     |
-| --------- | ---- | ------------------------- |
-| PCLK      | 5    | Pixel clock               |
-| DE        | 38   | Data enable               |
-| HSYNC     | –    | Not routed (DE mode used) |
-| VSYNC     | –    | Not routed (DE mode used) |
-| R3        | 6    | Data                      |
-| R4        | 7    | Data                      |
-| R5        | 8    | Data                      |
-| R6        | 9    | Data                      |
-| R7        | 10   | Data                      |
-| G2        | 11   | Data                      |
-| G3        | 12   | Data                      |
-| G4        | 13   | Data                      |
-| G5        | 14   | Data                      |
-| G6        | 15   | Data                      |
-| G7        | 16   | Data                      |
-| B3        | 17   | Data                      |
-| B4        | 18   | Data                      |
-| B5        | 48   | Data                      |
-| B6        | 47   | Data                      |
-| B7        | 39   | Data                      |
-| Backlight | 21   | PWM capable               |
-| Reset     | 46   | LCD reset                 |
-
-- Backlight control: PWM via LEDC on GPIO21
-
-### Touch
-
-- Controller: GT911 (capacitive touch)
-- Interface: I²C0
+### Touch (GT911, I²C0)
 
 | Signal | GPIO |
 | ------ | ---- |
@@ -226,66 +284,57 @@ Minimal example (summary)
 | IRQ    | 40   |
 | RST    | 41   |
 
-## I²C initialization guide
+### I²C1 (example: AHT20 sensor)
 
-### GT911 Touch Controller (I²C0)
+- SCL: GPIO3
+- SDA: GPIO4
 
-- Pins: SCL = GPIO1, SDA = GPIO2
-- Bus: `I2C_NUM_0`
-- Speed: 400 kHz
+### USB
 
-### AHT20 Humidity & Temperature Sensor (I²C1)
+- USB-C: Power + flashing
+- USB-A: OTG (host/device)
+- D−: GPIO19
+- D+: GPIO20
 
-- Pins: SCL = GPIO3, SDA = GPIO4
-- Bus: `I2C_NUM_1`
-- Speed: 100 kHz
+<a id="troubleshooting"></a>
 
-## USB
+## ⚠️ Troubleshooting
 
-- Mode: USB OTG (device/host, software-controlled)
-- Pins: D− GPIO19, D+ GPIO20 (ESP32-S3 built-in USB PHY)
+- **Build errors (missing libs):** run `pio update` and recheck `lib_deps`.
+- **Out of memory:** confirm PSRAM is enabled (`BOARD_HAS_PSRAM`) and use partial LVGL buffers in `lv_conf.h`.
+- **Upload issues on macOS:** check port (`/dev/cu.usbserial-XXXX`) and close other serial monitors.
 
-## Other peripherals
+<a id="resources"></a>
 
-- PWM Backlight: GPIO21 via LEDC
-- Connectivity: Wi‑Fi, Bluetooth
-- Available interfaces: UART, I²C, SPI, ADC, DAC, CAN, LEDC, MCPWM, RMT, etc.
+## 📚 Resources
 
-## Build configuration notes
+- [LVGL Docs](https://docs.lvgl.io/)
+- [PlatformIO Docs](https://docs.platformio.org/)
+- [ESP32-S3 (espressif32)](https://docs.platformio.org/en/latest/boards/espressif32/esp32-s3-devkitc-1.html)
+- [LCD Datasheet](docs/QX05ZJGI70N-05545Y.pdf)
+- [Pinout reference](docs/PINOUT.md)
 
-- `platformio.ini` contains the `pandatouch` environment and `lib_deps` for LVGL, GT911 and GFX.
-- `build_flags` set `-DBOARD_HAS_PSRAM` to enable PSRAM-aware behavior and `-DLV_CONF_PATH` to point to `include/lv_conf.h`.
+<a id="faq"></a>
 
-## Troubleshooting
+## ❓ FAQ
 
-Common issues and fixes
+**Q: Which core should I start with?**  
+A: Start with **2.x** if you depend on many third‑party Arduino libs. Switch to **3.x** for best ESP32‑S3 + LCD performance once your dependencies are compatible.
 
-- Build fails (missing LVGL or GFX): run `pio update` and confirm the `lib_deps` lines in `platformio.ini`.
-- Out of memory or LVGL allocation failures: ensure PSRAM is enabled (`BOARD_HAS_PSRAM`) and review `include/lv_conf.h` buffer settings. The project uses partial buffering to reduce SRAM usage.
-- Touch not working: confirm GT911 wiring (SDA/SCL pins), IRQ and RST wiring, and confirm the device appears on the bus.
-- Display shows white/no image: check reset pin wiring, panel power, and ensure `pt_gfx.begin()` runs without errors.
-- Upload errors on macOS: check the serial port name (e.g. `/dev/cu.usbserial-XXXX`) and close other serial monitors.
+**Q: How do I revert to 2.x?**  
+A: The template exposes a ready-to-use 2.x environment named `pandatouch`. Build with that env to use the PlatformIO-bundled Arduino 2.x setup:
 
-## Contribution
+```bash
+# Build using the 2.x env
+pio run -e pandatouch
 
-Contributions are welcome. Please open an issue for large changes, or submit a pull request. Use feature branches and describe the change in the PR.
+# Upload using the 2.x env
+pio run -e pandatouch -t upload --upload-port /dev/ttyUSB0
+```
 
-## License
+If you prefer to keep a single `platformio.ini` env and manually edit it, you can still remove/comment the `platform_packages` block and any 3.x-specific `lib_deps` and then run a clean build (`pio run -t clean`) before rebuilding.
 
-This repository does not include an explicit license file. If you want to permit broad reuse, consider the MIT License. Tell me which license you prefer and I will add a `LICENSE` file.
+Alternatively, copy the contents of `platformio.example.ini` to your `platformio.ini` to restore a standalone 2.x configuration.
 
-## Resources
-
-- LVGL documentation: https://docs.lvgl.io/
-- PlatformIO: https://platformio.org/
-- LCD datasheet: `docs/QX05ZJGI70N-05545Y.pdf`
-
----
-
-If you want, I can now:
-
-1. Add an explicit `LICENSE` file (MIT by default).
-2. Extract the pin defines from `pt/pt_board.h` and replace the table with the auto-generated definitive mapping.
-3. Add screenshot placeholders under `docs/screenshots` and update README with images.
-
-Which of these shall I do next?
+**Q: Can I mix `lib_deps` blocks?**  
+A: It's best to list all libraries for an environment in one `lib_deps` block. If you include multiple `lib_deps =` blocks in the same `[env]`, a later one will overwrite earlier entries.
